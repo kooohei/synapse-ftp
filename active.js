@@ -27,23 +27,32 @@ ftp.on(SnpsFtp.Events.CMD_CH_CONNECTED, function (res) {
 	.then(function (res) {
 		line("Login Success");
 		line(res);
-		line("list('.')");
+		return ftp.options();
+	}, function (err) {
+		line("ERROR 1");
+		line(err);	
+	})
+	.then(function (resAry) {
+		line("Options Success");
+		line(resAry);
 		return ftp.list(".");
+	}, function (err) {
+		line("ERROR 2");
+		line(err);
 	})
 	.then(function (res) {
 		line("LIST Success");
 		line(res);
-		line("quit()");
 		return ftp.quit();
+	}, function (err) {
+		line("ERROR 3");
+		line(err);
 	})
 	.then(function (res) {
 		line("QUIT Comamnd Success");
 		line(res);
-	})
-	.fail(function (err) {
-		line("ERROR");
-		line(err);
 	});
+	
 });
 
 

@@ -113,7 +113,7 @@ SynapseFtp.prototype.getCmdResponse = function () { // {{{
 	var obj		= {};
 
 	function ToObject(res) {
-		var match = res.match(/^([1-9][0-9]{2})\s(.*)/);
+		var match = res.match(/^([1-9][0-9]{2})[\s-](.*)/);
 		var code	= match ? parseInt(match[1]) : 0;
 		var msg		= match ? match[2] : "";
 		return {
@@ -126,13 +126,11 @@ SynapseFtp.prototype.getCmdResponse = function () { // {{{
 	var onData = function (chunk) {
 		buf += chunk;
 		if (buf.match(/^([1-9][0-9]{2})-[\s|\S]+?\1\s.+?\r\n$/m)) {	// is multi lines.
-
 			obj = ToObject(buf);
 			q.resolve(obj);
 			self.cmdch.removeListener("data", onData);
 
 		} else if (buf.match(/^([1-9][0-9]{2})\s.+?\r\n$/)) {				// is single line.
-
 			obj = ToObject(buf);
 			q.resolve(obj);
 			self.cmdch.removeListener("data", onData);
@@ -244,15 +242,21 @@ SynapseFtp.prototype.options = function () {
 	this.syst()
 	.then(function (res) {
 		ary.push(res);
-		return self.feat();.
+		return self.feat();
+	}, function (err) {
+		q.reject(err);
 	})
 	.then(function (res) {
 		ary.push(res);
 		return self.opts("UTF8 ON");
+	}, function (err) {
+		q.reject(err);
 	})
 	.then(function (res) {
 		ary.push(res);
 		return self.type("I");
+	}, function (err) {
+		q.reject(err);
 	})
 	.then(function (res) {
 		ary.push(res);
@@ -268,10 +272,8 @@ SynapseFtp.prototype.options = function () {
 		} else {
 			q.resolve(ary);
 		}
-	})
-	.fail(function (err) {
-		q.reject(err);	
-	});
+	}, q.reject);
+	
 	return q.promise;
 };
 
@@ -306,6 +308,9 @@ SynapseFtp.prototype.pasv = function () {
 	return q.promise;
 };
 
+/**
+ * getLoalAddress
+ */
 function getLocalAddress() {
 	var ifacesObj = {}
 	ifacesObj.ipv4 = [];
@@ -338,7 +343,6 @@ SynapseFtp.prototype.port = function () {
 	var self = this;
 	function createParameter() {
 		var hex = self.params.listenPort.toString(16);
-		out(hex);
 		var h	= hex.substr(0, 2);
 		var l	= hex.substr(2, 4);
 		h = parseInt(h, 16);
@@ -537,10 +541,8 @@ SynapseFtp.prototype.actvList = function (basedir) {
 			});
 
 			server.once("connection", function (datach) {
-				out("connection");
 				datach.on("data", onData);
 				datach.on("close", function (err) {
-					out("close");
 					if (err) {
 						q.reject(err);
 						return q.promise;
@@ -549,7 +551,6 @@ SynapseFtp.prototype.actvList = function (basedir) {
 					}
 				});
 				datach.on("end", function () {
-					out("end");
 					self.getCmdResponse()
 					.then(function (res) {
 						result.res.push(res);
@@ -563,6 +564,9 @@ SynapseFtp.prototype.actvList = function (basedir) {
 	return q.promise;
 };
 
+SynapseFtp.prototype.upload = function (local, remote) {
+	
+};
 
 
 

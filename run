@@ -1,5 +1,5 @@
 #!/bin/sh
 
-printf "\033c"
+printf '\033c'
 node active
 
