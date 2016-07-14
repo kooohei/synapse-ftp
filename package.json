@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/kooohei/synapse-ftp/issues"
   },
-  "homepage": "https://github.com/kooohei/synapse-ftp"
+  "homepage": "https://github.com/kooohei/synapse-ftp",
+  "dependencies": {
+    "q": "^1.4.1"
+  }
 }
