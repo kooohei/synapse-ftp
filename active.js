@@ -43,16 +43,26 @@ ftp.on(SnpsFtp.Events.CMD_CH_CONNECTED, function (res) {
 	.then(function (res) {
 		line("LIST Success");
 		line(res);
-		return ftp.quit();
+		return ftp.actvUpload("./upload.txt", "upload.txt");
 	}, function (err) {
 		line("ERROR 3");
 		line(err);
 	})
 	.then(function (res) {
+		line("UPLOAD Success");
+		line(res);
+		return ftp.quit();
+	}, function (err) {
+		line("ERROR 4");
+		line(err);
+	})
+	.then(function (res) {
 		line("QUIT Comamnd Success");
 		line(res);
+	}, function (err) {
+		line("QUIT Command Faild");
+		line(err);
 	});
-	
 });
 
 

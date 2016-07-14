@@ -9,7 +9,7 @@ var net						= require("net");
 var EventEmitter	= require("events").EventEmitter;
 var util					= require("util");
 var os						= require("os");
-
+var fs						= require("fs");
 /* Constants */
 var PASSIVE		= 0,
 		ACTIVE		= 1;
@@ -564,9 +564,53 @@ SynapseFtp.prototype.actvList = function (basedir) {
 	return q.promise;
 };
 
-SynapseFtp.prototype.upload = function (local, remote) {
+
+/**
+ * actvUpload(local, remote)
+ */
+SynapseFtp.prototype.actvUpload = function (local, remote) {
+	var q = Q.defer(),
+			self = this,
+			buf = "",
+			res = [];
 	
+
+	this.port()
+	.then(function (res) {
+		if (res.code !== 200) {
+			q.reject(res);
+			return q.promise;
+		}
+		result.res.push(res);
+
+		var server = net.createServer();
+		var adr = getLocalAddress();
+		
+		server.listen(self.params.listenPort, adr, function () {
+
+			self.cmdch.write("STOR " + remote + "\r\n");
+			self.getCmdResponse()
+			.then(function (res) {
+				result.res.push(res);
+			});
+
+			server.once("connection", function (datach) {
+				var r = fs.createReadStream(local);
+				r.pipe(datach);
+				r.on("end", function () {
+					self.getCmdResponse()
+					.then(function (res) {
+						out(res);
+						result.res.push(res);
+						q.resolve(result);
+					})
+				});
+			});
+		});
+	});
+	return q.promise;
 };
+
 
 
 
