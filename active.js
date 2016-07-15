@@ -1,5 +1,4 @@
 "use strict";
-
 var SnpsFtp = require("./index.js");
 var ftp = new SnpsFtp.SynapseFtp("192.168.11.10", 21, "hayashi", "kohei0730", true);
 ftp.active(32630);
@@ -35,26 +34,35 @@ ftp.on(SnpsFtp.Events.CMD_CH_CONNECTED, function (res) {
 	.then(function (resAry) {
 		line("Options Success");
 		line(resAry);
-		return ftp.list(".");
+		//return ftp.list(".");
+		return ftp.upload("./upload.txt", "upload.txt");
 	}, function (err) {
 		line("ERROR 2");
 		line(err);
 	})
+	/*
 	.then(function (res) {
 		line("LIST Success");
 		line(res);
-		return ftp.actvUpload("./upload.txt", "upload.txt");
+		return ftp.quit();
+
+	}, function (err) {
+		line("ERROR 3");
+		line(err);
+	})
+	*/
+	.then(function (res) {
+		line("UPLOAD Success");
+		line(res);
+		return ftp.download("./upload.txt", "./download.txt");
 	}, function (err) {
 		line("ERROR 3");
 		line(err);
 	})
 	.then(function (res) {
-		line("UPLOAD Success");
+		line("DOWNLOAD Success");
 		line(res);
 		return ftp.quit();
-	}, function (err) {
-		line("ERROR 4");
-		line(err);
 	})
 	.then(function (res) {
 		line("QUIT Comamnd Success");

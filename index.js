@@ -1,7 +1,14 @@
 /jshint node: true, unused: false, devel: true, plusplus: false, laxcomma: true, nomen: true, regexp: true, indent: 2, maxerr: 50*/
 /*global define, $, brackets, Mustache, window, appshell, module */
-
 "use strict";
+
+/**
+ * TODO
+ * Make sure each "on" => "once"
+ */
+
+
+
 
 /* Import modules */
 var Q							= require("q");
@@ -125,7 +132,7 @@ SynapseFtp.prototype.getCmdResponse = function () { // {{{
 
 	var onData = function (chunk) {
 		buf += chunk;
-		if (buf.match(/^([1-9][0-9]{2})-[\s|\S]+?\1\s.+?\r\n$/m)) {	// is multi lines.
+		if (buf.match(/^([1-9][0-9]{2})-[\s\S]+?\1\s.+?\r\n$/m)) {	// is multi lines.
 			obj = ToObject(buf);
 			q.resolve(obj);
 			self.cmdch.removeListener("data", onData);
@@ -137,6 +144,7 @@ SynapseFtp.prototype.getCmdResponse = function () { // {{{
 		}
 	};
 	this.cmdch.on("data", onData);
+
 	return q.promise;
 }; // }}}
 
@@ -421,11 +429,53 @@ SynapseFtp.prototype.login = function () {
 SynapseFtp.prototype.list = function (basedir) {
 
 	if (this.params.passive) {
-		return this.pasvList(basedir);	
+		return this.pasvList(basedir);
 	} else {
 		return this.actvList(basedir);
 	}
 
+};
+
+
+SynapseFtp.prototype.pasvUpload = function (local, remote) {
+	var q = Q.defer(),
+			self = this,
+			result = [];
+
+	this.pasv()
+	.then(function (res) {
+		if (res.code !== 227) {
+			q.reject(res);
+		} else {
+			result.push(res);
+
+			self.rawcmd("STOR " + remote)
+			.then(function (res) {
+				result.push(res);
+			}, function (err) {
+				q.reject(err);	
+			});
+			
+			var datach = net.connect(res.addr.port, res.addr.ip, function () {
+				var r = fs.createReadStream(local);
+				r.once("close", function () {
+					self.getCmdResponse()
+					.then(function(res) {
+						if (res.code !== 226) {
+							q.reject(res);
+						} else {
+							result.push(res);
+							q.resolve(result);
+						}
+					});
+				});
+				r.pipe(datach);
+			});
+			datach.once("error", q.reject);
+
+		}	
+	});
+	return q.promise;
 };
 
 
@@ -514,7 +564,7 @@ SynapseFtp.prototype.actvList = function (basedir) {
 			};
 	
 	var onData = function (chunk) {
-		buf += chunk;	
+		buf += chunk;
 	};
 
 	this.port()
@@ -529,41 +579,58 @@ SynapseFtp.prototype.actvList = function (basedir) {
 		var adr = getLocalAddress();
 		server.listen(self.params.listenPort, adr, function () {
 
+			out("SERVER BOUND ADDRESS");
+
 			self.cmdch.write("LIST " + basedir + "\r\n");
 			self.getCmdResponse()
 			.then(function (res) {
+				out("LIST COMMAND OK");
+				
 				if (res.code !== 150) {
-					q.reject(res);
+					out("ERROR 2");
 					return q.promise;
 				} else {
+					out(res);
 					result.res.push(res);	
 				}
 			});
-
+			//{{{
 			server.once("connection", function (datach) {
+
 				datach.on("data", onData);
-				datach.on("close", function (err) {
-					if (err) {
-						q.reject(err);
-						return q.promise;
-					} else {
-						datach.removeListener("data", onData);	
-					}
-				});
 				datach.on("end", function () {
 					self.getCmdResponse()
 					.then(function (res) {
 						result.res.push(res);
-						result.list = buf;
-						q.resolve(result);
 					});
 				});
+
+				datach.once("close", function (err) {
+					if (err) {
+						q.reject(err);
+						return q.promise;
+					} else {
+						result.list = buf;
+						q.resolve(result);
+					}
+					datach.removeListener("data", onData);
+				});
 			});
+			//}}}
 		});
 	});
 	return q.promise;
 };
 
+
+
+SynapseFtp.prototype.upload = function (local, remote) {
+	if (this.params.passive) {
+		return this.pasvUpload(local, remote);
+	} else {
+		return this.actvUpload(local, remote);
+	}
+};
 
 /**
  * actvUpload(local, remote)
@@ -571,46 +638,63 @@ SynapseFtp.prototype.actvList = function (basedir) {
 SynapseFtp.prototype.actvUpload = function (local, remote) {
 	var q = Q.defer(),
 			self = this,
-			buf = "",
-			res = [];
+			result = [];
 	
-
 	this.port()
 	.then(function (res) {
 		if (res.code !== 200) {
 			q.reject(res);
 			return q.promise;
-		}
-		result.res.push(res);
+		} else {
+			result.push(res);
+		}		
 
 		var server = net.createServer();
 		var adr = getLocalAddress();
-		
+
 		server.listen(self.params.listenPort, adr, function () {
 
 			self.cmdch.write("STOR " + remote + "\r\n");
 			self.getCmdResponse()
 			.then(function (res) {
-				result.res.push(res);
+				if (res.code !== 150) {
+					q.reject(res);
+					return q.promise;
+				}
+				result.push(res);
 			});
-
+			
 			server.once("connection", function (datach) {
 				var r = fs.createReadStream(local);
 				r.pipe(datach);
-				r.on("end", function () {
-					self.getCmdResponse()
-					.then(function (res) {
-						out(res);
-						result.res.push(res);
-						q.resolve(result);
-					})
+				r.once("error", function (err) {
+					q.reject(err);
+					return q.promise;
+				});
+				r.once("close", function (hadErr) {
+					if (hadError) {
+						q.reject(hadError);
+					} else {
+						self.getCmdResponse()
+						.then(function (res) {
+							if (res.code !== 226) {
+								q.reject(res);
+								return q.promise;
+							} else {
+								result.push(res);
+								q.resolve(result);
+							}
+						});
+					}
 				});
 			});
+			
 		});
+	}, function (err) {
+		q.reject(err);	
 	});
 	return q.promise;
 };
-
 
 
 
